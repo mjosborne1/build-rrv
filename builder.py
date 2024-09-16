@@ -5,6 +5,7 @@ import urllib
 import re
 import os, io, csv
 import json
+from datetime import date, timedelta
 from fhirpathpy import evaluate
 
 baseurl="https://r4.ontoserver.csiro.au/fhir"
@@ -21,6 +22,16 @@ def path_exists(path):
         else:
            return False
 
+def get_release_date():
+    """
+       To create the release date for the RRV ValueSet
+       Add one day to the current date and return in a string (YYYY-MM-DD)
+    """
+    current_date = date.today()
+    one_day_later = current_date + timedelta(days=1)
+    release_date = one_day_later.strftime("%Y-%m-%d")
+    return release_date
+
 
 def get_preferred_term(code):
     cslookup='/CodeSystem/$lookup'  
@@ -34,20 +45,21 @@ def get_preferred_term(code):
 
 
 def write_header(outfile):
+    release_date = get_release_date()
     with open(outfile, 'w') as file:
         file.write('ValueSet: RANZCRRadiologyProcedures\n')
-        file.write('Id: ranzcr-radiology-procedures\n')
-        file.write('Title: "RANZCR Referral Procedures"\n')
+        file.write('Id: ranzcr-radiology-referral\n')
+        file.write('Title: "RANZCR Radiology Referral"\n')
         file.write('Description: "Standard codes for use in requesting radiology tests in Australia, derived from the RANZCR Radiology Referral Set (RRS)."\n')
         file.write('* ^meta.profile[+] = "http://hl7.org/fhir/StructureDefinition/shareablevalueset"\n')
-        file.write('* ^url = "https://ranzcr.com/fhir/ValueSet/radiology-procedures"\n')
+        file.write('* ^url = "https://ranzcr.com/fhir/ValueSet/radiology-referral"\n')
         file.write('* ^version = "1.0.0"\n')
         file.write('* ^extension[http://hl7.org/fhir/StructureDefinition/structuredefinition-fmm].valueInteger = 0\n')
         file.write('* ^status = #draft\n')
         file.write('* ^experimental = false\n')
-        file.write('* ^date = "2024-07-17"\n')
+        file.write(f'* ^date = "{release_date}"\n')
         file.write('* ^publisher = "HL7 Australia"\n')
-        file.write('* ^copyright = "Copyright \u00a9 2023 Royal Australian and New Zealand College of Radiologists- All rights reserved. This resource includes SNOMED Clinical Terms\u2122 (SNOMED CT\u00ae) which is used by permission of the International Health Terminology Standards Development Organisation (IHTSDO). All rights reserved. SNOMED CT\u00ae, was originally created by The College of American Pathologists. \u201cSNOMED\u201d and \u201cSNOMED CT\u201d are registered trademarks of the IHTSDO. \n\nThe rights to use and implement or implementation of SNOMED CT content are limited to the extent it is necessary to allow for the end use of this material.  No further rights are granted in respect of the International Release and no further use of any SNOMED CT content by any other party is permitted."')
+        file.write('* ^copyright = "This value set includes content from SNOMED CT, which is copyright © 2002+ International Health Terminology Standards Development Organisation (IHTSDO), and distributed by agreement between IHTSDO and HL7. Implementer use of SNOMED CT is not covered by this agreement\nThe SNOMED International IPS Terminology is distributed by International Health Terminology Standards Development Organisation, trading as SNOMED International, and is subject the terms of the [Creative Commons Attribution 4.0 International Public License](https://creativecommons.org/licenses/by/4.0/). For more information, see [SNOMED IPS Terminology](https://www.snomed.org/snomed-ct/Other-SNOMED-products/international-patient-summary-terminology)\n The HL7 International IPS implementation guides incorporate SNOMED CT®, used by permission of the International Health Terminology Standards Development Organisation, trading as SNOMED International. SNOMED CT was originally created by the College of American Pathologists. SNOMED CT is a registered trademark of the International Health Terminology Standards Development Organisation, all rights reserved. Implementers of SNOMED CT should review [usage terms](http://www.snomed.org/snomed-ct/get-snomed-ct) or directly contact SNOMED International: info@snomed.org"')
 
 def build_rrv_fshfile(infile,outdir):
     fsh_lines = []
