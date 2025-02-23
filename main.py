@@ -4,11 +4,12 @@ import builder
 
 homedir=os.environ['HOME']
 parser = argparse.ArgumentParser()
-infiledefault=os.path.join(homedir,"data","rrv-fsh","in","RRS_Candidates_4.4.tsv")
+infiledefault=os.path.join(homedir,"data","rrv-fsh","in","RRS_Candidates_5.1.tsv")
 outdirdefault=os.path.join(homedir,"data","rrv-fsh","out")
 parser.add_argument("-i", "--infile", help="S2S File from Export", default=infiledefault)
 parser.add_argument("-o", "--outdir", help="output dir for FHIR artefacts", default=outdirdefault)
 args = parser.parse_args()
+errfile = os.path.join(args.outdir,"errors.csv")
 print("Started")
-builder.run_main(args.infile,args.outdir)
+builder.run_main(args.infile,errfile,args.outdir)
 print("Finished")

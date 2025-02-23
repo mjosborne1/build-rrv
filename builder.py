@@ -47,7 +47,7 @@ def get_preferred_term(code):
 def write_header(outfile):
     release_date = get_release_date()
     with open(outfile, 'w') as file:
-        file.write('ValueSet: RANZCRRadiologyProcedures\n')
+        file.write('ValueSet: RANZCRRadiologyReferral\n')
         file.write('Id: ranzcr-radiology-referral\n')
         file.write('Title: "RANZCR Radiology Referral"\n')
         file.write('Description: "Standard codes for use in requesting radiology tests in Australia, derived from the RANZCR Radiology Referral Set (RRS)."\n')
@@ -61,35 +61,63 @@ def write_header(outfile):
         file.write('* ^publisher = "HL7 Australia"\n')
         file.write('* ^copyright = "This value set includes content from SNOMED CT, which is copyright © 2002+ International Health Terminology Standards Development Organisation (IHTSDO), and distributed by agreement between IHTSDO and HL7. Implementer use of SNOMED CT is not covered by this agreement\nThe SNOMED International IPS Terminology is distributed by International Health Terminology Standards Development Organisation, trading as SNOMED International, and is subject the terms of the [Creative Commons Attribution 4.0 International Public License](https://creativecommons.org/licenses/by/4.0/). For more information, see [SNOMED IPS Terminology](https://www.snomed.org/snomed-ct/Other-SNOMED-products/international-patient-summary-terminology)\n The HL7 International IPS implementation guides incorporate SNOMED CT®, used by permission of the International Health Terminology Standards Development Organisation, trading as SNOMED International. SNOMED CT was originally created by the College of American Pathologists. SNOMED CT is a registered trademark of the International Health Terminology Standards Development Organisation, all rights reserved. Implementers of SNOMED CT should review [usage terms](http://www.snomed.org/snomed-ct/get-snomed-ct) or directly contact SNOMED International: info@snomed.org"')
 
-def build_rrv_fshfile(infile,outdir):
-    fsh_lines = []
-    dupes = []
-    cnt=0
-    df = pd.read_csv(infile, sep='\t', dtype={'Target code':str})
-    for index,row in df.iterrows():
-        # Format the FHIR Shorthand line
-        if row['Relationship type code'] == "TARGET_EQUIVALENT":
-           # display = get_preferred_term(row['Target code'])
-            if row['Target code'] in dupes:
-                print(f'...duplicate code detected: {row['Target code']}, ignoring')
-                continue
-            else:
-                cnt+=1
-                #fsh_lines.append(f'* $sct#{row['Target code']} "{display}"')
-                fsh_lines.append(f'* $sct#{row['Target code']}')
-            dupes.append(row['Target code'])
 
-    if path_exists(outdir):
-        outfile =  os.path.join(outdir,f'rrv.fsh')
+def build_rrv_fshfile(infile, errfile, outdir):
+    fsh_lines = []
+    dupes = {}  # Change to dictionary for lookup
+    error_report = []
+    cnt = 0
+
+    df = pd.read_csv(infile, sep='\t', dtype={'Target code': str})
+
+    for index, row in df.iterrows():
+        if row['Relationship type code'] == "TARGET_EQUIVALENT" and row["Status"] == "ACCEPTED":
+            if row['Target code'] in dupes:
+                # Add original record to error report if not already added
+                if not any(er['Row #'] == dupes[row['Target code']]['Row #'] for er in error_report):
+                    error_report.append(dupes[row['Target code']])
+                
+                # Add duplicate record to the error report
+                error_report.append({
+                    'Row #': index,
+                    'RRS Id': row['Source code'],
+                    'Source display': row['Source display'],
+                    'Duplicate target concept': row["Target code"],
+                    'FSN': row['Target display']
+                })
+                print(f'...duplicate code detected: {row["Target code"]}, ignoring')
+            else:
+                cnt += 1
+                fsh_lines.append(f'* $sct#{row["Target code"]}')
+                
+                # Store in dictionary
+                dupes[row['Target code']] = {
+                    'Row #': index,
+                    'RRS Id': row['Source code'],
+                    'Source display': row['Source display'],
+                    'Duplicate target concept': row["Target code"],
+                    'FSN': row['Target display']
+                }
+
+    # Ensure output directory exists
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    outfile = os.path.join(outdir, 'rrv.fsh')
 
     # Write the FHIR Shorthand lines to the output file
-    write_header(outfile)
+    write_header(outfile)  # Ensure this function is defined elsewhere
     with open(outfile, 'a') as file:
         for line in fsh_lines:
             file.write(line + '\n')
-    
-    # End 
+
+    # Write the error report to a CSV file if there are duplicates
+    if error_report:
+        error_df = pd.DataFrame(error_report)
+        error_df.to_csv(errfile, index=False, quoting=csv.QUOTE_ALL)
+        print(f'...error report written to {errfile}')
+
     print(f'...{cnt} rows written to {outfile}')
 
-def run_main(infile,outdir):
-    build_rrv_fshfile(infile,outdir)
+def run_main(infile,errfile,outdir):
+    build_rrv_fshfile(infile,errfile,outdir)
